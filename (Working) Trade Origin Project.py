@@ -23,6 +23,8 @@ def dist_calc(country_1_coords, country_2_coords):
     c, r = 2 * asin(sqrt(a)), 6371
     return(c * r)
 
+
+
 #Temporary, distance between UK and country
 def dist_calcuk(country_2_coords):
     #converts from degrees to radians
@@ -46,14 +48,16 @@ def eu_non(country):
     else:
         return 'Non-EU'
 
-
+#Splits the Latitude and Longitude section of the string and converts to float so we can calculate distance
 def coord(country):
     temp = dist_dict[country].split(' ')
     return [float(temp[0]), float(temp[1])]
 
 
+
 def country_name(country):
     return cntry_dict[country]
+
 
 
 #Using the dictionary to update the SITC codes in the dataset - issues caused by suppressed and unknown data are corrected in 2 ways (as they dont appear in the list of commodities used to make dictionary): 
@@ -229,19 +233,19 @@ for i in check:
     check2.append(list(i[1]))
 checks = [check1, check2]
 
-df_dist = df_disparity[df_disparity['Country of Origin'] != 'United Kingdom'].copy().reset_index()
+df_qa = df_disparity[df_disparity['Country of Origin'] != 'United Kingdom'].copy().reset_index()
 
-df_dist['Dist Travelled'] = list(map(dist_calc, df_dist['Country of Origin Co-ords'], df_dist['Country of Dispatch Co-ords']))
+df_qa['Dist Travelled'] = list(map(dist_calc, df_qa['Country of Origin Co-ords'], df_qa['Country of Dispatch Co-ords']))
 
-df_dist['uk_orig'] = list(map(dist_calcuk, df_dist['Country of Origin Co-ords'])) 
-df_dist['uk_disp'] = list(map(dist_calcuk, df_dist['Country of Dispatch Co-ords']))
-df_dist['Dist diff'] = df_dist['uk_orig'] - df_dist['uk_disp']
-df_dist['Ratio'] = df_dist['Dist diff']/df_dist['Dist Travelled']
+df_qa['uk_orig'] = list(map(dist_calcuk, df_qa['Country of Origin Co-ords'])) 
+df_qa['uk_disp'] = list(map(dist_calcuk, df_qa['Country of Dispatch Co-ords']))
+df_qa['Dist diff'] = df_qa['uk_orig'] - df_qa['uk_disp']
+df_qa['Ratio'] = df_qa['Dist diff']/df_qa['Dist Travelled']
 
-df_dist = df_dist[df_dist['Dist diff'] < -1000]        
-df_dist = df_dist.groupby(['Country of Origin', 'Country of Dispatch', 'Country of Origin Code', 'Country of Dispatch Code', 'Dist Travelled', 'Dist diff', 'Ratio'])['Value'].agg(['sum', 'count']).reset_index()
+df_qa = df_qa[df_qa['Dist diff'] < -1000]        
+df_qa = df_qa.groupby(['Country of Origin', 'Country of Dispatch', 'Country of Origin Code', 'Country of Dispatch Code', 'Dist Travelled', 'Dist diff', 'Ratio'])['Value'].agg(['sum', 'count']).reset_index()
 
-for i in df_dist['Country of Dispatch Code']:
+for i in df_qa['Country of Dispatch Code']:
     checked = []
     for z in range(2):
         if list(i[z]) in checks[z]:
@@ -250,7 +254,10 @@ for i in df_dist['Country of Dispatch Code']:
         checked.append('-')
     checked_all.append(', '.join(checked))
     
-df_dist['Origin Check'] = checked_all
+df_qa['Dispatch Check'] = checked_all
+
+df_qa_overview = df_qa[(df_qa['count'] < 12) & (df_qa['Dispatch Check'] != '-')].groupby(['Country of Dispatch Code', 'Dispatch Check'])[['sum', 'count']].sum().reset_index()
+df_qa_overview_2 = df_qa[df_qa['count'] < 12].groupby(['Dispatch Check'])[['sum', 'count']].sum().reset_index()
 
 '-------------------------------------------------------------------------------------------'
 
