@@ -11,6 +11,7 @@ from math import radians, cos, sin, asin, sqrt
 
 
 ###Fun Fun Functions
+#Calculates distance between two locations using latitude and longitude, used for QA
 def dist_calc(country_1_coords, country_2_coords):
     #converts from degrees to radians
     long1, long2 = country_1_coords[1], country_2_coords[1]
@@ -22,7 +23,7 @@ def dist_calc(country_1_coords, country_2_coords):
     c, r = 2 * asin(sqrt(a)), 6371
     return(c * r)
 
-#Temporary
+#Temporary, distance between UK and country
 def dist_calcuk(country_2_coords):
     #converts from degrees to radians
     long1, long2 = -3.435973, country_2_coords[1]
@@ -65,6 +66,7 @@ def sitc_code(sitc_level):
             return f"{sitc_level[:sitc_level.find('-'):]} Non Response Estimates"
     except KeyError:
         return f"{sitc_level[:-1:]} - Suppressed for Confidentiality"
+    
 '-------------------------------------------------------------------------------------------'
 ###ORGANISING DATA
 
@@ -96,7 +98,7 @@ for file in os.listdir():
 
         for i in all_d:
             if i.find('QV') == -1 and i.find('YY') == -1 and i.find('ZY') == -1 and i[40:42:] != '  ':
-                month.append(i[:6:]), comcode.append(i[13:21:]), sitc_i.append(i[21:22:]), sitc_ii.append(i[21:23:]), sitc_iii.append(i[21:24:]), sitc_iv.append(i[21:25:]), sitc_v.append(i[21:26:]), c_dis.append(i[29:31:]), port.append(i[34:37:]), c_orig.append(i[40:42:]), val.append(float(i[44:56:])), n_c_dis.append(i[26:29:]), n_port.append(i[31:34:]), n_c_orig.append(i[37:40:]), transport.append(i[42:44:])
+                month.append(i[:6:]), comcode.append(i[13:21:]), sitc_i.append(i[21:22:]), sitc_ii.append(i[21:23:]), c_dis.append(i[29:31:]), port.append(i[34:37:]), c_orig.append(i[40:42:]), val.append(float(i[44:56:])), n_c_dis.append(i[26:29:]), n_port.append(i[31:34:]), n_c_orig.append(i[37:40:]), transport.append(i[42:44:])
 
 ##Reading/Using File to link SITC code with commodity names (file wont read unless encoding = utf8 is used ???)
 
@@ -111,7 +113,7 @@ for i in range(2):
 sitc_names, cntry_all = temp[-2], temp[-1]    
 
 #Creating a dictionary that maps SITC code and country code to its title - need to try and loop this part nicely (if useful)
-print('Loop 1')
+print('Making Dicts')
 for i in sitc_names:
     sitc_dict[i[:i.find('\t'):]] = i[i.find('\t')+1::]
 
@@ -133,12 +135,11 @@ print('Mapping')
 area_dis, area_orig = list(map(eu_non, c_dis)), list(map(eu_non, c_orig))                   #EU or non-EU
 c_dis_coord, c_orig_coord = list(map(coord, c_dis)), list(map(coord, c_orig))               #Longitude and latitude
 c_dis_name, c_orig_name = list(map(country_name, c_dis)), list(map(country_name, c_orig))   #Country Names
-sitc_i, sitc_ii, sitc_iii, sitc_v = list(map(sitc_code, sitc_i)), list(map(sitc_code, sitc_ii)), list(map(sitc_code, sitc_iii)), list(map(sitc_code, sitc_v))
+sitc_i, sitc_ii = list(map(sitc_code, sitc_i)), list(map(sitc_code, sitc_ii))               #SITC Codes
 
 print('Creating main dataframe')
-data = {'Year-Month' : month, 'Commodity Code' : comcode, 'SITC level 1' : sitc_i, 'SITC level 2' : sitc_ii, 'SITC level 3' : sitc_iii, 'SITC Level 5' : sitc_v, 'Country of Dispatch' : c_dis_name, 'Country of Dispatch Code' : c_dis, 'Country of Dispatch Co-ords' : c_dis_coord, 'Port of Dispatch' : port, 'Area of Dispatch' : area_dis, 'Country of Origin' : c_orig_name, 'Country of Origin Code' : c_orig, 'Country of Origin Co-ords' : c_orig_coord, 'Area of Origin' : area_orig, 'Value' : val, 'Method of Transport' : transport}
-
 ##Creating the main dataframe
+data = {'Year-Month' : month, 'Commodity Code' : comcode, 'SITC level 1' : sitc_i, 'SITC level 2' : sitc_ii, 'Country of Dispatch' : c_dis_name, 'Country of Dispatch Code' : c_dis, 'Country of Dispatch Co-ords' : c_dis_coord, 'Port of Dispatch' : port, 'Area of Dispatch' : area_dis, 'Country of Origin' : c_orig_name, 'Country of Origin Code' : c_orig, 'Country of Origin Co-ords' : c_orig_coord, 'Area of Origin' : area_orig, 'Value' : val, 'Method of Transport' : transport}
 df = pd.DataFrame(data = data)
 df['Value'] = pd.to_numeric(df['Value'])
 df['Value'] = df['Value']/1000000
@@ -194,8 +195,8 @@ df_transp.to_excel(wr, sheet_name = 'Transport')
 
 #Table showing what commodities are primarily re-exported by each country 
 for v in class_:  
-    df_cmdty = df_disparity.groupby(['SITC level 1', 'SITC level 3', f'Country of {v}'])['Value'].sum()
-    df_cmdty = df_cmdty.rename_axis(['SITC Level 1', 'SITC level 3', f'Country of {v}']).reset_index()   
+    df_cmdty = df_disparity.groupby(['SITC level 1', 'SITC level 2', f'Country of {v}'])['Value'].sum()
+    df_cmdty = df_cmdty.rename_axis(['SITC Level 1', 'SITC level 2', f'Country of {v}']).reset_index()   
     df_cmdty.to_excel(wr, sheet_name = f'Re-Exp Cmdty by {v}', index = False)
 
 
@@ -219,8 +220,8 @@ abc = abc.rename_axis(['Origin', 'SITC Level 1', 'SITC level 2']).reset_index()
 
 
 '-------------------------------------------------------------------------------------------'
-    ###QA
-
+###QA
+print('QA')
 check = ['NL', 'DE', 'BE', 'FR', 'CH', 'IT', 'ES']
 check1, check2, checked_all = [], [], []
 for i in check:
@@ -228,8 +229,6 @@ for i in check:
     check2.append(list(i[1]))
 checks = [check1, check2]
 
-
-print('QA')
 df_dist = df_disparity[df_disparity['Country of Origin'] != 'United Kingdom'].copy().reset_index()
 
 df_dist['Dist Travelled'] = list(map(dist_calc, df_dist['Country of Origin Co-ords'], df_dist['Country of Dispatch Co-ords']))
@@ -239,12 +238,8 @@ df_dist['uk_disp'] = list(map(dist_calcuk, df_dist['Country of Dispatch Co-ords'
 df_dist['Dist diff'] = df_dist['uk_orig'] - df_dist['uk_disp']
 df_dist['Ratio'] = df_dist['Dist diff']/df_dist['Dist Travelled']
 
-
-
 df_dist = df_dist[df_dist['Dist diff'] < -1000]        
 df_dist = df_dist.groupby(['Country of Origin', 'Country of Dispatch', 'Country of Origin Code', 'Country of Dispatch Code', 'Dist Travelled', 'Dist diff', 'Ratio'])['Value'].agg(['sum', 'count']).reset_index()
-
-
 
 for i in df_dist['Country of Dispatch Code']:
     checked = []
