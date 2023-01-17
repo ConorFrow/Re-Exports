@@ -3,13 +3,71 @@
 ###INSTRUCTIONS FOR RUNNING
 #Ensure this code is saved in the same file as any text files you want to read
 #Name the folder: Rotterdam Effect (or change the name in: '../folder_name/{file}' on highlighted lines to your own folder name)
-
-
 '-------------------------------------------------------------------------------------------'
-###ORGANISING DATA
 ##Importing modules that may/may not be needed
 import pandas as pd
 import os
+from math import radians, cos, sin, asin, sqrt
+
+
+###Fun Fun Functions
+def dist_calc(country_1_coords, country_2_coords):
+    #converts from degrees to radians
+    long1, long2 = country_1_coords[1], country_2_coords[1]
+    lat1, lat2 = country_1_coords[0], country_2_coords[0]
+    long1, long2, lat1, lat2 = radians(long1), radians(long2), radians(lat1), radians(lat2)     
+    # Haversine formula
+    dlong, dlat = long2 - long1, lat2 - lat1
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlong / 2)**2
+    c, r = 2 * asin(sqrt(a)), 6371
+    return(c * r)
+
+#Temporary
+def dist_calcuk(country_2_coords):
+    #converts from degrees to radians
+    long1, long2 = -3.435973, country_2_coords[1]
+    lat1, lat2 = 55.378051, country_2_coords[0]
+    long1, long2, lat1, lat2 = radians(long1), radians(long2), radians(lat1), radians(lat2)     
+    # Haversine formula
+    dlong, dlat = long2 - long1, lat2 - lat1
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlong / 2)**2
+    c, r = 2 * asin(sqrt(a)), 6371
+    return(c * r)
+
+
+
+#These three functions are used to map Names/Values to their respective country codes in the dataset
+def eu_non(country):
+    if country in eu:
+        return 'EU'
+    elif country == '  ':
+        return 'N/A'
+    else:
+        return 'Non-EU'
+
+
+def coord(country):
+    temp = dist_dict[country].split(' ')
+    return [float(temp[0]), float(temp[1])]
+
+
+def country_name(country):
+    return cntry_dict[country]
+
+
+#Using the dictionary to update the SITC codes in the dataset - issues caused by suppressed and unknown data are corrected in 2 ways (as they dont appear in the list of commodities used to make dictionary): 
+#All unknown data ends with '-', so use that to identify them, all suppressed data is covered by the 'try' loop, which runs different code to correct the issue if a KeyError appears 
+def sitc_code(sitc_level):
+    try:    
+        if '-' not in sitc_level:
+            return sitc_dict[sitc_level]
+        else: 
+            return f"{sitc_level[:sitc_level.find('-'):]} Non Response Estimates"
+    except KeyError:
+        return f"{sitc_level[:-1:]} - Suppressed for Confidentiality"
+'-------------------------------------------------------------------------------------------'
+###ORGANISING DATA
+
 
 ##Creating lists to add to when reading text files
 month, comcode, sitc, c_dis, port, c_orig, val, n_c_dis, n_port, n_c_orig, hs_two, sitc_dict, transport, sitc_i, sitc_ii, sitc_iii, sitc_iv, sitc_v, area_dis, area_orig, cntry_dict, dist_dict = [], [], [], [], [], [], [], [], [], [], [], {}, [], [], [], [], [], [], [], [], {}, {}
@@ -37,73 +95,61 @@ for file in os.listdir():
 ##If format changes/adding new items to table: variable_name.append(i[Start number - 1:End number:])
 
         for i in all_d:
-            if i.find('QV') == -1 and i.find('YY') == -1 and i.find('ZY') == -1 and i[44:56:] != '':
-                month.append(i[:6:]), comcode.append(i[13:21:]), sitc_i.append(i[21:22:]), sitc_ii.append(i[21:23:]), sitc_iii.append(i[21:24:]), sitc_iv.append(i[21:25:]), sitc_v.append(i[21:26:]), c_dis.append(i[29:31:]), port.append(i[34:37:]), c_orig.append(i[40:42:]), val.append(i[44:56:]), n_c_dis.append(i[26:29:]), n_port.append(i[31:34:]), n_c_orig.append(i[37:40:]), transport.append(i[42:44:])
+            if i.find('QV') == -1 and i.find('YY') == -1 and i.find('ZY') == -1 and i[40:42:] != '  ':
+                month.append(i[:6:]), comcode.append(i[13:21:]), sitc_i.append(i[21:22:]), sitc_ii.append(i[21:23:]), sitc_iii.append(i[21:24:]), sitc_iv.append(i[21:25:]), sitc_v.append(i[21:26:]), c_dis.append(i[29:31:]), port.append(i[34:37:]), c_orig.append(i[40:42:]), val.append(float(i[44:56:])), n_c_dis.append(i[26:29:]), n_port.append(i[31:34:]), n_c_orig.append(i[37:40:]), transport.append(i[42:44:])
 
 ##Reading/Using File to link SITC code with commodity names (file wont read unless encoding = utf8 is used ???)
 
+temp = ['SITC codes', 'Country Distances/All Country Data']
 
-
-temp = ['SITC codes', 'Country Codes', 'Country Distances/Distance']
-
-for i in range(3):
+for i in range(2):
     file_ = open(fr'../Rotterdam Effect/{temp[i]}.txt', 'r', encoding = 'utf8')
     text = file_.read()
     file_.close() 
     temp.append(text.split('\n'))
 
-sitc_names, cntry_names, dist_all = temp[-3], temp[-2], temp[-1]    
+sitc_names, cntry_all = temp[-2], temp[-1]    
 
 #Creating a dictionary that maps SITC code and country code to its title - need to try and loop this part nicely (if useful)
 print('Loop 1')
 for i in sitc_names:
     sitc_dict[i[:i.find('\t'):]] = i[i.find('\t')+1::]
 
-for i in cntry_names:
-    if i.find('(') == -1:
-        cntry_dict[i[:i.find('\t'):]] = i[i.find('\t')+1::]
-    else:
-        cntry_dict[i[:i.find('\t'):]] = i[i.find('\t')+1:i.find('(')-1:]
-        
-for i in dist_all:
-    dist_dict[i[:i.find('\t'):]] = i[i.find('\t')+1::]
+hold = []
+long, lat = [], []
+for i in cntry_all:
+    hold.append(i.split('\t'))
 
-#Using the dictionary to update the SITC codes in the dataset - issues caused by suppressed and unknown data are corrected in 2 ways (as they dont appear in the list of commodities used to make dictionary): 
-#All unknown data ends with '-', so use that to identify them, all suppressed data is covered by the 'try' loop, which runs different code to correct the issue if a KeyError appears 
-print('Naming SITC codes and Country Codes')
-for v in sitc_all:
-#in this loop, list(enumerate(variable)) creates a list of all the items in v, assigning an index value to each one (Looks something like [(0,'first item'), (1,'second item')]) etc. i and t then take these values in each loop
-    for i, t in list(enumerate(v)):
-        try:    
-            if '-' not in t:
-                v[i] = sitc_dict[t]
-            else: 
-                v[i] = f"{t[:t.find('-'):]} Non Response Estimates"
-        except KeyError:
-            v[i] = f"{t[:-1:]} - Suppressed for Confidentiality"
+for i in hold:
+    cntry_dict[i[0]] = i[3]
+    long.append(i[1]), lat.append(i[2])
+    dist_dict[i[0]] = i[1] + ' ' + i[2]       
 
+
+
+
+print('Mapping')
+#Mapping lists to datset (could maybe use single function to map all three groups?)
+area_dis, area_orig = list(map(eu_non, c_dis)), list(map(eu_non, c_orig))                   #EU or non-EU
+c_dis_coord, c_orig_coord = list(map(coord, c_dis)), list(map(coord, c_orig))               #Longitude and latitude
+c_dis_name, c_orig_name = list(map(country_name, c_dis)), list(map(country_name, c_orig))   #Country Names
+sitc_i, sitc_ii, sitc_iii, sitc_v = list(map(sitc_code, sitc_i)), list(map(sitc_code, sitc_ii)), list(map(sitc_code, sitc_iii)), list(map(sitc_code, sitc_v))
 
 print('Creating main dataframe')
-data = {'Year-Month' : month, 'Commodity Code' : comcode, 'SITC level 1' : sitc_i, 'SITC level 2' : sitc_ii, 'SITC level 3' : sitc_iii, 'SITC Level 5' : sitc_v, 'Country of Dispatch' : c_dis, 'Country of Dispatch Code' : c_dis, 'Port of Dispatch' : port, 'Country of Origin' : c_orig, 'Country of Origin Code' : c_orig, 'Value' : val, 'Method of Transport' : transport}
+data = {'Year-Month' : month, 'Commodity Code' : comcode, 'SITC level 1' : sitc_i, 'SITC level 2' : sitc_ii, 'SITC level 3' : sitc_iii, 'SITC Level 5' : sitc_v, 'Country of Dispatch' : c_dis_name, 'Country of Dispatch Code' : c_dis, 'Country of Dispatch Co-ords' : c_dis_coord, 'Port of Dispatch' : port, 'Area of Dispatch' : area_dis, 'Country of Origin' : c_orig_name, 'Country of Origin Code' : c_orig, 'Country of Origin Co-ords' : c_orig_coord, 'Area of Origin' : area_orig, 'Value' : val, 'Method of Transport' : transport}
 
 ##Creating the main dataframe
 df = pd.DataFrame(data = data)
 df['Value'] = pd.to_numeric(df['Value'])
 df['Value'] = df['Value']/1000000
 
-for i in ['Dispatch', 'Origin']:       
-    df[f'Area of {i}'] = ['EU' if i in eu else 'Non-EU' for i in df[f'Country of {i}']]
-    df.replace({f'Country of {i}' : cntry_dict}, inplace = True)
-    df[f'{i} Distance'] = df[f'Country of {i}']
-    df.replace({f'{i} Distance' : dist_dict}, inplace = True)
-
-
 
 '-------------------------------------------------------------------------------------------'
 ###ANALYSIS STUFF
 
 print('Making Everything Else')
-#Simple table, just shows all data where disp != orig    
+
+#All data where disp != orig    
 df_disparity = df[df['Country of Dispatch'] != df['Country of Origin']]
 
 
@@ -141,7 +187,7 @@ df_diff.to_excel(wr, sheet_name = 'Re-Export value by Country')
 #Table showing what methods of Transport are seen when there is a disparity (as a % of total) vs total %
 dfl = [df.groupby('Method of Transport').size(), df_disparity.groupby('Method of Transport').size()]
 df_transp = pd.concat(dfl, axis = 1)
-df_transp, df_transp.columns = df_transp.drop('  '), ['Total count', 'Count when Disp != Orig']
+df_transp.columns = ['Total count', 'Count when Disp != Orig']
 df_transp['Total count %'], df_transp['Disparity count %'] = df_transp['Total count']*100/df_transp['Total count'].sum(), df_transp['Count when Disp != Orig']*100/df_transp['Count when Disp != Orig'].sum()
 df_transp.to_excel(wr, sheet_name = 'Transport')
 
@@ -173,7 +219,8 @@ abc = abc.rename_axis(['Origin', 'SITC Level 1', 'SITC level 2']).reset_index()
 
 
 '-------------------------------------------------------------------------------------------'
-###QA
+    ###QA
+
 check = ['NL', 'DE', 'BE', 'FR', 'CH', 'IT', 'ES']
 check1, check2, checked_all = [], [], []
 for i in check:
@@ -183,12 +230,21 @@ checks = [check1, check2]
 
 
 print('QA')
-df_dist = df[(df['Origin Distance'] != '  ') & (df['Country of Origin'] != 'United Kingdom')].copy()
-df_dist[['Origin Distance', 'Dispatch Distance']] = df_dist[['Origin Distance', 'Dispatch Distance']].astype(int)
-df_dist['Dist diff'] = df_dist['Origin Distance'] - df_dist['Dispatch Distance']
-df_dist = df_dist[((abs(df_dist['Dist diff'])/df_dist['Origin Distance']) < 0.1)] 
-                  #& (df_dist['Dist diff'] < -1000)]        
-df_dist = df_dist.groupby(['Country of Origin', 'Country of Dispatch', 'Country of Origin Code', 'Country of Dispatch Code', 'Dist diff'])['Value'].agg(['sum', 'count']).reset_index()
+df_dist = df_disparity[df_disparity['Country of Origin'] != 'United Kingdom'].copy().reset_index()
+
+df_dist['Dist Travelled'] = list(map(dist_calc, df_dist['Country of Origin Co-ords'], df_dist['Country of Dispatch Co-ords']))
+
+df_dist['uk_orig'] = list(map(dist_calcuk, df_dist['Country of Origin Co-ords'])) 
+df_dist['uk_disp'] = list(map(dist_calcuk, df_dist['Country of Dispatch Co-ords']))
+df_dist['Dist diff'] = df_dist['uk_orig'] - df_dist['uk_disp']
+df_dist['Ratio'] = df_dist['Dist diff']/df_dist['Dist Travelled']
+
+
+
+df_dist = df_dist[df_dist['Dist diff'] < -1000]        
+df_dist = df_dist.groupby(['Country of Origin', 'Country of Dispatch', 'Country of Origin Code', 'Country of Dispatch Code', 'Dist Travelled', 'Dist diff', 'Ratio'])['Value'].agg(['sum', 'count']).reset_index()
+
+
 
 for i in df_dist['Country of Dispatch Code']:
     checked = []
@@ -200,6 +256,7 @@ for i in df_dist['Country of Dispatch Code']:
     checked_all.append(', '.join(checked))
     
 df_dist['Origin Check'] = checked_all
+
 '-------------------------------------------------------------------------------------------'
 
 ##IMPORTANT
