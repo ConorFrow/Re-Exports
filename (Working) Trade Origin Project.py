@@ -1,8 +1,11 @@
-##Hello and welcome to my code, I hope you enjoy your stay
-
-###INSTRUCTIONS FOR RUNNING
-#Ensure this code is saved in the same file as any text files you want to read
-#Name the folder: Rotterdam Effect (or change the name in: '../folder_name/{file}' on highlighted lines to your own folder name)
+start = 0
+#Helping with run times by running part of the code that is needed
+while start == 0:
+    what_to_run = input('Tables = 1 | QA = 2 | Both = 3: ---> ')
+    if what_to_run == '1' or what_to_run == '2' or what_to_run == '3':
+        start += 1
+    else:
+        print('Try again...')
 '-------------------------------------------------------------------------------------------'
 ##Importing modules that may/may not be needed
 import pandas as pd
@@ -25,7 +28,7 @@ def dist_calc(country_1_coords, country_2_coords):
 
 
 
-#Temporary, distance between UK and country
+#Temporary (I can find a better way), distance between UK and selected country
 def dist_calcuk(country_2_coords):
     #converts from degrees to radians
     long1, long2 = -3.435973, country_2_coords[1]
@@ -135,7 +138,7 @@ for i in hold:
 
 
 print('Mapping')
-#Mapping lists to datset (could maybe use single function to map all three groups?)
+#Mapping lists to datset (could maybe use single function to map all three groups?) (going to try make SITC and country list tuples)
 area_dis, area_orig = list(map(eu_non, c_dis)), list(map(eu_non, c_orig))                   #EU or non-EU
 c_dis_coord, c_orig_coord = list(map(coord, c_dis)), list(map(coord, c_orig))               #Longitude and latitude
 c_dis_name, c_orig_name = list(map(country_name, c_dis)), list(map(country_name, c_orig))   #Country Names
@@ -151,113 +154,114 @@ df['Value'] = df['Value']/1000000
 
 '-------------------------------------------------------------------------------------------'
 ###ANALYSIS STUFF
-
-print('Making Everything Else')
-
-#All data where disp != orig    
-df_disparity = df[df['Country of Dispatch'] != df['Country of Origin']]
-
-
-#Time series
-dates, class_ = (df_disparity['Year-Month'].unique()).tolist(), ['Origin', 'Dispatch']
-for v in class_:    
-    df_ts = ((df_disparity[df_disparity['Year-Month'] == f'{dates[0]}']).groupby([f'Country of {v}', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
+if what_to_run == '1' or what_to_run == '3':
+    print('Making Everything Else')
+    
+    #All data where disp != orig    
+    df_disparity = df[df['Country of Dispatch'] != df['Country of Origin']]
+    
+    
+    #Time series
+    dates, class_ = (df_disparity['Year-Month'].unique()).tolist(), ['Origin', 'Dispatch']
+    for v in class_:    
+        df_ts = ((df_disparity[df_disparity['Year-Month'] == f'{dates[0]}']).groupby([f'Country of {v}', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
+        for i in dates[1::]:
+            df_temp = (df_disparity[df_disparity['Year-Month'] == f'{i}']).groupby([f'Country of {v}', 'SITC level 1'])['Value'].sum()
+            df_ts = pd.concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
+        df_ts = df_ts.rename_axis([v, 'SITC level 1']).reset_index()    
+        df_ts.to_excel(wr, sheet_name = f'Time Series by {v}', index = False)
+    
+    #EU/non-EU time series (it will be possible to loop the above and below, I will do that later (maybe))
+    df_disparity = df[df['Area of Dispatch'] != df['Area of Origin']]
+    
+    for v in class_:    
+        df_ts = ((df_disparity[df_disparity['Year-Month'] == f'{dates[0]}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
+        for i in dates[1::]:
+            df_temp = (df_disparity[df_disparity['Year-Month'] == f'{i}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()
+            df_ts = pd.concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
+        df_ts = df_ts.rename_axis([v, 'SITC level 1']).reset_index()    
+        df_ts.to_excel(wr, sheet_name = f'EU Time Series by {v}', index = False)
+    
+    
+    #Table that compares each countries import value when using dispatch vs origin
+    dfl = [df.groupby('Country of Dispatch')['Value'].sum(), df.groupby('Country of Origin')['Value'].sum(), df_disparity.groupby('Country of Dispatch')['Value'].sum()]
+    df_diff = pd.concat(dfl, axis = 1) 
+    df_diff.columns = ['Dispatch', 'Origin', 'Re-Export Value']
+    df_diff['Disp - Orig'] = df_diff.iloc[:, 0] - df_diff.iloc[:, 1]
+    df_diff = df_diff.sort_values(by = ['Disp - Orig'], ascending = False)
+    df_diff.to_excel(wr, sheet_name = 'Re-Export value by Country')
+    
+    
+    #Table showing what methods of Transport are seen when there is a disparity (as a % of total) vs total %
+    dfl = [df.groupby('Method of Transport').size(), df_disparity.groupby('Method of Transport').size()]
+    df_transp = pd.concat(dfl, axis = 1)
+    df_transp.columns = ['Total count', 'Count when Disp != Orig']
+    df_transp['Total count %'], df_transp['Disparity count %'] = df_transp['Total count']*100/df_transp['Total count'].sum(), df_transp['Count when Disp != Orig']*100/df_transp['Count when Disp != Orig'].sum()
+    df_transp.to_excel(wr, sheet_name = 'Transport')
+    
+    
+    #Table showing what commodities are primarily re-exported by each country 
+    for v in class_:  
+        df_cmdty = df_disparity.groupby(['SITC level 1', 'SITC level 2', f'Country of {v}'])['Value'].sum()
+        df_cmdty = df_cmdty.rename_axis(['SITC Level 1', 'SITC level 2', f'Country of {v}']).reset_index()   
+        df_cmdty.to_excel(wr, sheet_name = f'Re-Exp Cmdty by {v}', index = False)
+    
+    
+    wr.save()
+    
+    ###Ukraine temp
+    ua = df_disparity[df_disparity['Country of Origin'] == 'Ukraine']
+    
+    
+    df_ts = ((ua[ua['Year-Month'] == f'{dates[0]}']).groupby(['Country of Dispatch', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
     for i in dates[1::]:
-        df_temp = (df_disparity[df_disparity['Year-Month'] == f'{i}']).groupby([f'Country of {v}', 'SITC level 1'])['Value'].sum()
+        df_temp = (ua[ua['Year-Month'] == f'{i}']).groupby(['Country of Dispatch', 'SITC level 1'])['Value'].sum()
         df_ts = pd.concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
-    df_ts = df_ts.rename_axis([v, 'SITC level 1']).reset_index()    
-    df_ts.to_excel(wr, sheet_name = f'Time Series by {v}', index = False)
-
-#EU/non-EU time series (it will be possible to loop the above and below, I will do that later (maybe))
-df_disparity = df[df['Area of Dispatch'] != df['Area of Origin']]
-
-for v in class_:    
-    df_ts = ((df_disparity[df_disparity['Year-Month'] == f'{dates[0]}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
-    for i in dates[1::]:
-        df_temp = (df_disparity[df_disparity['Year-Month'] == f'{i}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()
-        df_ts = pd.concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
-    df_ts = df_ts.rename_axis([v, 'SITC level 1']).reset_index()    
-    df_ts.to_excel(wr, sheet_name = f'EU Time Series by {v}', index = False)
-
-
-#Table that compares each countries import value when using dispatch vs origin
-dfl = [df.groupby('Country of Dispatch')['Value'].sum(), df.groupby('Country of Origin')['Value'].sum(), df_disparity.groupby('Country of Dispatch')['Value'].sum()]
-df_diff = pd.concat(dfl, axis = 1) 
-df_diff.columns = ['Dispatch', 'Origin', 'Re-Export Value']
-df_diff['Disp - Orig'] = df_diff.iloc[:, 0] - df_diff.iloc[:, 1]
-df_diff = df_diff.sort_values(by = ['Disp - Orig'], ascending = False)
-df_diff.to_excel(wr, sheet_name = 'Re-Export value by Country')
-
-
-#Table showing what methods of Transport are seen when there is a disparity (as a % of total) vs total %
-dfl = [df.groupby('Method of Transport').size(), df_disparity.groupby('Method of Transport').size()]
-df_transp = pd.concat(dfl, axis = 1)
-df_transp.columns = ['Total count', 'Count when Disp != Orig']
-df_transp['Total count %'], df_transp['Disparity count %'] = df_transp['Total count']*100/df_transp['Total count'].sum(), df_transp['Count when Disp != Orig']*100/df_transp['Count when Disp != Orig'].sum()
-df_transp.to_excel(wr, sheet_name = 'Transport')
-
-
-#Table showing what commodities are primarily re-exported by each country 
-for v in class_:  
-    df_cmdty = df_disparity.groupby(['SITC level 1', 'SITC level 2', f'Country of {v}'])['Value'].sum()
-    df_cmdty = df_cmdty.rename_axis(['SITC Level 1', 'SITC level 2', f'Country of {v}']).reset_index()   
-    df_cmdty.to_excel(wr, sheet_name = f'Re-Exp Cmdty by {v}', index = False)
-
-
-wr.save()
-
-###Ukraine temp
-ua = df_disparity[df_disparity['Country of Origin'] == 'Ukraine']
-
-
-df_ts = ((ua[ua['Year-Month'] == f'{dates[0]}']).groupby(['Country of Dispatch', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
-for i in dates[1::]:
-    df_temp = (ua[ua['Year-Month'] == f'{i}']).groupby(['Country of Dispatch', 'SITC level 1'])['Value'].sum()
-    df_ts = pd.concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
-df_ts = df_ts.rename_axis(['Country of Dispatch', 'SITC level 1']).reset_index()    
-
-
-abc = df_disparity.copy()
-abc = abc[abc['Country of Dispatch'] == 'Netherlands']
-abc = abc.groupby(['Country of Origin', 'SITC level 1', 'SITC level 2'])['Value'].sum()
-abc = abc.rename_axis(['Origin', 'SITC Level 1', 'SITC level 2']).reset_index()
+    df_ts = df_ts.rename_axis(['Country of Dispatch', 'SITC level 1']).reset_index()    
+    
+    
+    abc = df_disparity.copy()
+    abc = abc[abc['Country of Dispatch'] == 'Netherlands']
+    abc = abc.groupby(['Country of Origin', 'SITC level 1', 'SITC level 2'])['Value'].sum()
+    abc = abc.rename_axis(['Origin', 'SITC Level 1', 'SITC level 2']).reset_index()
 
 
 '-------------------------------------------------------------------------------------------'
-###QA
-print('QA')
-check = ['NL', 'DE', 'BE', 'FR', 'CH', 'IT', 'ES']
-check1, check2, checked_all = [], [], []
-for i in check:
-    check1.append(list(i[0]))
-    check2.append(list(i[1]))
-checks = [check1, check2]
-
-df_qa = df_disparity[df_disparity['Country of Origin'] != 'United Kingdom'].copy().reset_index()
-
-df_qa['Dist Travelled'] = list(map(dist_calc, df_qa['Country of Origin Co-ords'], df_qa['Country of Dispatch Co-ords']))
-
-df_qa['uk_orig'] = list(map(dist_calcuk, df_qa['Country of Origin Co-ords'])) 
-df_qa['uk_disp'] = list(map(dist_calcuk, df_qa['Country of Dispatch Co-ords']))
-df_qa['Dist diff'] = df_qa['uk_orig'] - df_qa['uk_disp']
-df_qa['Ratio'] = df_qa['Dist diff']/df_qa['Dist Travelled']
-
-df_qa = df_qa[df_qa['Dist diff'] < -1000]        
-df_qa = df_qa.groupby(['Country of Origin', 'Country of Dispatch', 'Country of Origin Code', 'Country of Dispatch Code', 'Dist Travelled', 'Dist diff', 'Ratio'])['Value'].agg(['sum', 'count']).reset_index()
-
-for i in df_qa['Country of Dispatch Code']:
-    checked = []
-    for z in range(2):
-        if list(i[z]) in checks[z]:
-            checked.append(check[checks[z].index(list(i[z]))])
-    if checked == []:
-        checked.append('-')
-    checked_all.append(', '.join(checked))
+if what_to_run == '1' or what_to_run == '3':
+    ###QA
+    print('QA')
+    check = ['NL', 'DE', 'BE', 'FR', 'CH', 'IT', 'ES']
+    check1, check2, checked_all = [], [], []
+    for i in check:
+        check1.append(list(i[0]))
+        check2.append(list(i[1]))
+    checks = [check1, check2]
     
-df_qa['Dispatch Check'] = checked_all
-
-df_qa_overview = df_qa[(df_qa['count'] < 12) & (df_qa['Dispatch Check'] != '-')].groupby(['Country of Dispatch Code', 'Dispatch Check'])[['sum', 'count']].sum().reset_index()
-df_qa_overview_2 = df_qa[df_qa['count'] < 12].groupby(['Dispatch Check'])[['sum', 'count']].sum().reset_index()
+    df_qa = df_disparity[df_disparity['Country of Origin'] != 'United Kingdom'].copy().reset_index()
+    
+    df_qa['Dist Travelled'] = list(map(dist_calc, df_qa['Country of Origin Co-ords'], df_qa['Country of Dispatch Co-ords']))
+    
+    df_qa['uk_orig'] = list(map(dist_calcuk, df_qa['Country of Origin Co-ords'])) 
+    df_qa['uk_disp'] = list(map(dist_calcuk, df_qa['Country of Dispatch Co-ords']))
+    df_qa['Dist diff'] = df_qa['uk_orig'] - df_qa['uk_disp']
+    df_qa['Ratio'] = df_qa['Dist diff']/df_qa['Dist Travelled']
+    
+    df_qa = df_qa[df_qa['Dist diff'] < -1000]        
+    df_qa = df_qa.groupby(['Country of Origin', 'Country of Dispatch', 'Country of Origin Code', 'Country of Dispatch Code', 'Dist Travelled', 'Dist diff', 'Ratio'])['Value'].agg(['sum', 'count']).reset_index()
+    
+    for i in df_qa['Country of Dispatch Code']:
+        checked = []
+        for z in range(2):
+            if list(i[z]) in checks[z]:
+                checked.append(check[checks[z].index(list(i[z]))])
+        if checked == []:
+            checked.append('-')
+        checked_all.append(', '.join(checked))
+        
+    df_qa['Dispatch Check'] = checked_all
+    
+    df_qa_overview = df_qa[(df_qa['count'] < 12) & (df_qa['Dispatch Check'] != '-')].groupby(['Country of Dispatch Code', 'Dispatch Check'])[['sum', 'count']].sum().reset_index()
+    df_qa_overview_2 = df_qa[df_qa['count'] < 12].groupby(['Dispatch Check'])[['sum', 'count']].sum().reset_index()
 
 '-------------------------------------------------------------------------------------------'
 
