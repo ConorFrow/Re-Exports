@@ -51,6 +51,8 @@ def eu_non(country):
     else:
         return 'Non-EU'
 
+
+
 #Splits the Latitude and Longitude section of the string and converts to float so we can calculate distance
 def coord(country):
     temp = dist_dict[country].split(' ')
@@ -109,7 +111,7 @@ for file in os.listdir():
 
 ##Reading/Using File to link SITC code with commodity names (file wont read unless encoding = utf8 is used ???)
 
-temp = ['SITC codes', 'Country Distances/All Country Data']
+temp = ['SITC codes', 'All Country Data']
 
 for i in range(2):
     file_ = open(fr'../Rotterdam Effect/{temp[i]}.txt', 'r', encoding = 'utf8')
