@@ -8,7 +8,7 @@ while start == 0:
         print('Try again...')
 '-------------------------------------------------------------------------------------------'
 ##Importing modules that may/may not be needed
-import pandas as pd
+from pandas import ExcelWriter, DataFrame, to_numeric, concat
 import os
 from math import radians, cos, sin, asin, sqrt
 
@@ -85,7 +85,7 @@ sitc_all = [sitc_i, sitc_ii, sitc_iii, sitc_iv, sitc_v]
 eu = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'EL', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE']
 
 #Setting up exporting to Excel
-wr = pd.ExcelWriter('Pre-made Analysis re-exports.xlsx')
+wr = ExcelWriter('Pre-made Analysis re-exports.xlsx')
 
 print('Reading Files')
 ##Getting all files from current directory(folder) ending in .txt
@@ -147,14 +147,14 @@ sitc_i, sitc_ii = list(map(sitc_code, sitc_i)), list(map(sitc_code, sitc_ii))   
 print('Creating main dataframe')
 ##Creating the main dataframe
 data = {'Year-Month' : month, 'Commodity Code' : comcode, 'SITC level 1' : sitc_i, 'SITC level 2' : sitc_ii, 'Country of Dispatch' : c_dis_name, 'Country of Dispatch Code' : c_dis, 'Country of Dispatch Co-ords' : c_dis_coord, 'Port of Dispatch' : port, 'Area of Dispatch' : area_dis, 'Country of Origin' : c_orig_name, 'Country of Origin Code' : c_orig, 'Country of Origin Co-ords' : c_orig_coord, 'Area of Origin' : area_orig, 'Value' : val, 'Method of Transport' : transport}
-df = pd.DataFrame(data = data)
-df['Value'] = pd.to_numeric(df['Value'])
+df = DataFrame(data = data)
+df['Value'] = to_numeric(df['Value'])
 df['Value'] = df['Value']/1000000
 
 
 '-------------------------------------------------------------------------------------------'
 ###ANALYSIS STUFF
-if what_to_run == '1' or what_to_run == '3':
+if what_to_run == '2' or what_to_run == '3':
     print('Making Everything Else')
     
     #All data where disp != orig    
@@ -167,7 +167,7 @@ if what_to_run == '1' or what_to_run == '3':
         df_ts = ((df_disparity[df_disparity['Year-Month'] == f'{dates[0]}']).groupby([f'Country of {v}', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
         for i in dates[1::]:
             df_temp = (df_disparity[df_disparity['Year-Month'] == f'{i}']).groupby([f'Country of {v}', 'SITC level 1'])['Value'].sum()
-            df_ts = pd.concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
+            df_ts = concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
         df_ts = df_ts.rename_axis([v, 'SITC level 1']).reset_index()    
         df_ts.to_excel(wr, sheet_name = f'Time Series by {v}', index = False)
     
@@ -178,14 +178,14 @@ if what_to_run == '1' or what_to_run == '3':
         df_ts = ((df_disparity[df_disparity['Year-Month'] == f'{dates[0]}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
         for i in dates[1::]:
             df_temp = (df_disparity[df_disparity['Year-Month'] == f'{i}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()
-            df_ts = pd.concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
+            df_ts = concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
         df_ts = df_ts.rename_axis([v, 'SITC level 1']).reset_index()    
         df_ts.to_excel(wr, sheet_name = f'EU Time Series by {v}', index = False)
     
     
     #Table that compares each countries import value when using dispatch vs origin
     dfl = [df.groupby('Country of Dispatch')['Value'].sum(), df.groupby('Country of Origin')['Value'].sum(), df_disparity.groupby('Country of Dispatch')['Value'].sum()]
-    df_diff = pd.concat(dfl, axis = 1) 
+    df_diff = concat(dfl, axis = 1) 
     df_diff.columns = ['Dispatch', 'Origin', 'Re-Export Value']
     df_diff['Disp - Orig'] = df_diff.iloc[:, 0] - df_diff.iloc[:, 1]
     df_diff = df_diff.sort_values(by = ['Disp - Orig'], ascending = False)
@@ -194,7 +194,7 @@ if what_to_run == '1' or what_to_run == '3':
     
     #Table showing what methods of Transport are seen when there is a disparity (as a % of total) vs total %
     dfl = [df.groupby('Method of Transport').size(), df_disparity.groupby('Method of Transport').size()]
-    df_transp = pd.concat(dfl, axis = 1)
+    df_transp = concat(dfl, axis = 1)
     df_transp.columns = ['Total count', 'Count when Disp != Orig']
     df_transp['Total count %'], df_transp['Disparity count %'] = df_transp['Total count']*100/df_transp['Total count'].sum(), df_transp['Count when Disp != Orig']*100/df_transp['Count when Disp != Orig'].sum()
     df_transp.to_excel(wr, sheet_name = 'Transport')
@@ -216,7 +216,7 @@ if what_to_run == '1' or what_to_run == '3':
     df_ts = ((ua[ua['Year-Month'] == f'{dates[0]}']).groupby(['Country of Dispatch', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
     for i in dates[1::]:
         df_temp = (ua[ua['Year-Month'] == f'{i}']).groupby(['Country of Dispatch', 'SITC level 1'])['Value'].sum()
-        df_ts = pd.concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
+        df_ts = concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
     df_ts = df_ts.rename_axis(['Country of Dispatch', 'SITC level 1']).reset_index()    
     
     
