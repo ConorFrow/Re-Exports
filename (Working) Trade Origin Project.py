@@ -7,16 +7,18 @@ while start == 0:
     else:
         print('Try again...')
 '-------------------------------------------------------------------------------------------'
-##Importing modules that may/may not be needed
+##Importing modules
 from pandas import ExcelWriter, DataFrame, to_numeric, concat
 import os
 from math import radians, cos, sin, asin, sqrt
+import time
 
+timer = float(time.time())
 
 ###Fun Fun Functions
 #Calculates distance between two locations using latitude and longitude, used for QA
 def dist_calc(country_1_coords, country_2_coords):
-    #converts from degrees to radians
+    #converting from degrees to radians
     long1, long2 = country_1_coords[1], country_2_coords[1]
     lat1, lat2 = country_1_coords[0], country_2_coords[0]
     long1, long2, lat1, lat2 = radians(long1), radians(long2), radians(lat1), radians(lat2)     
@@ -53,7 +55,7 @@ def eu_non(country):
 
 
 
-#Splits the Latitude and Longitude section of the string and converts to float so we can calculate distance
+#Splits the Latitude and Longitude section of the All Country Data string and converts to float so we can calculate distance
 def coord(country):
     temp = dist_dict[country].split(' ')
     return [float(temp[0]), float(temp[1])]
@@ -75,7 +77,13 @@ def sitc_code(sitc_level):
             return f"{sitc_level[:sitc_level.find('-'):]} Non Response Estimates"
     except KeyError:
         return f"{sitc_level[:-1:]} - Suppressed for Confidentiality"
-    
+
+
+
+#Timer to check what parts of the code are slowing things down
+def timer_f(timers):
+    return timers - float(time.time())   
+    timers = float(time.time())
 '-------------------------------------------------------------------------------------------'
 ###ORGANISING DATA
 
@@ -89,11 +97,14 @@ eu = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'EL', 'H
 #Setting up exporting to Excel
 wr = ExcelWriter('Pre-made Analysis re-exports.xlsx')
 
-print('Reading Files')
+
+print('Start', f'{timer_f(timer)}')
+
+
 ##Getting all files from current directory(folder) ending in .txt
 for file in os.listdir():
 ##Reading relevant text files and splitting all lines by '\n' so they can be read individually
-    if file.endswith('.txt') and file != 'SITC codes.txt' and file != 'Country Codes.txt':
+    if file.endswith('.txt') and file != 'SITC codes.txt' and file != 'All Country Data.txt':
         print(file)
         file_ = open(fr'../Rotterdam Effect/{file}', 'r')
         text = file_.read()
@@ -122,7 +133,9 @@ for i in range(2):
 sitc_names, cntry_all = temp[-2], temp[-1]    
 
 #Creating a dictionary that maps SITC code and country code to its title - need to try and loop this part nicely (if useful)
-print('Making Dicts')
+
+print('Read files', round(float(f'{timer_f(timer)}'), 2))
+
 for i in sitc_names:
     sitc_dict[i[:i.find('\t'):]] = i[i.find('\t')+1::]
 
@@ -136,20 +149,20 @@ for i in hold:
     long.append(i[1]), lat.append(i[2])
     dist_dict[i[0]] = i[1] + ' ' + i[2]       
 
+print('Made dictionaries', round(float(f'{timer_f(timer)}'), 2))
 
-
-
-print('Mapping')
 #Mapping lists to datset (could maybe use single function to map all three groups?) (going to try make SITC and country list tuples)
 area_dis, area_orig = list(map(eu_non, c_dis)), list(map(eu_non, c_orig))                   #EU or non-EU
 c_dis_coord, c_orig_coord = list(map(coord, c_dis)), list(map(coord, c_orig))               #Longitude and latitude
 c_dis_name, c_orig_name = list(map(country_name, c_dis)), list(map(country_name, c_orig))   #Country Names
 sitc_i, sitc_ii = list(map(sitc_code, sitc_i)), list(map(sitc_code, sitc_ii))               #SITC Codes
 
-print('Creating main dataframe')
+print('Mapped', round(float(f'{timer_f(timer)}'), 2))
+
 ##Creating the main dataframe
 data = {'Year-Month' : month, 'Commodity Code' : comcode, 'SITC level 1' : sitc_i, 'SITC level 2' : sitc_ii, 'Country of Dispatch' : c_dis_name, 'Country of Dispatch Code' : c_dis, 'Country of Dispatch Co-ords' : c_dis_coord, 'Port of Dispatch' : port, 'Area of Dispatch' : area_dis, 'Country of Origin' : c_orig_name, 'Country of Origin Code' : c_orig, 'Country of Origin Co-ords' : c_orig_coord, 'Area of Origin' : area_orig, 'Value' : val, 'Method of Transport' : transport}
 df = DataFrame(data = data)
+del month, comcode, sitc_i, sitc_ii, c_dis, port, c_orig, val, n_c_dis, n_port, n_c_orig, transport
 df['Value'] = to_numeric(df['Value'])
 df['Value'] = df['Value']/1000000
 
@@ -157,7 +170,8 @@ df['Value'] = df['Value']/1000000
 '-------------------------------------------------------------------------------------------'
 ###ANALYSIS STUFF
 if what_to_run == '2' or what_to_run == '3':
-    print('Making Everything Else')
+
+    print('Made main dataframe', round(float(f'{timer_f(timer)}'), 2))
     
     #All data where disp != orig    
     df_disparity = df[df['Country of Dispatch'] != df['Country of Origin']]
@@ -231,7 +245,8 @@ if what_to_run == '2' or what_to_run == '3':
 '-------------------------------------------------------------------------------------------'
 if what_to_run == '1' or what_to_run == '3':
     ###QA
-    print('QA')
+
+    print('Made Everything else', round(float(f'{timer_f(timer)}'), 2))
     check = ['NL', 'DE', 'BE', 'FR', 'CH', 'IT', 'ES']
     check1, check2, checked_all = [], [], []
     for i in check:
@@ -265,6 +280,8 @@ if what_to_run == '1' or what_to_run == '3':
     df_qa_overview = df_qa[(df_qa['count'] < 12) & (df_qa['Dispatch Check'] != '-')].groupby(['Country of Dispatch Code', 'Dispatch Check'])[['sum', 'count']].sum().reset_index()
     df_qa_overview_2 = df_qa[df_qa['count'] < 12].groupby(['Dispatch Check'])[['sum', 'count']].sum().reset_index()
 
+
+    print("QA'd", round(float(f'{timer_f(timer)}'), 2))
 '-------------------------------------------------------------------------------------------'
 
 ##IMPORTANT
