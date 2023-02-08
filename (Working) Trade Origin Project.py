@@ -92,7 +92,7 @@ def timer_f(timers):
 month, comcode, sitc, c_dis, port, c_orig, val, n_c_dis, n_port, n_c_orig, hs_two, sitc_dict, transport, sitc_i, sitc_ii, sitc_iii, sitc_iv, sitc_v, area_dis, area_orig, cntry_dict, dist_dict = [], [], [], [], [], [], [], [], [], [], [], {}, [], [], [], [], [], [], [], [], {}, {}
 sitc_all = [sitc_i, sitc_ii, sitc_iii, sitc_iv, sitc_v]
 ##List of EU countries
-eu = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'EL', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE']
+eu = ('AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'EL', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE')
 
 #Setting up exporting to Excel
 wr = ExcelWriter('Pre-made Analysis re-exports.xlsx')
@@ -104,7 +104,7 @@ print('Start', f'{timer_f(timer)}')
 ##Getting all files from current directory(folder) ending in .txt
 for file in os.listdir():
 ##Reading relevant text files and splitting all lines by '\n' so they can be read individually
-    if file.endswith('.txt') and file != 'SITC codes.txt' and file != 'All Country Data.txt':
+    if file.endswith('.txt') and file != 'SITC codes.txt' and file != 'All Country Data.txt' and file != 'Continents temp.txt':
         print(file)
         file_ = open(fr'../Rotterdam Effect/{file}', 'r')
         text = file_.read()
@@ -166,17 +166,14 @@ del month, comcode, sitc_i, sitc_ii, c_dis, port, c_orig, val, n_c_dis, n_port, 
 df['Value'] = to_numeric(df['Value'])
 df['Value'] = df['Value']/1000000
 
-
+#All data where disp != orig    
+df_disparity = df[df['Country of Dispatch'] != df['Country of Origin']]
 '-------------------------------------------------------------------------------------------'
 ###ANALYSIS STUFF
-if what_to_run == '2' or what_to_run == '3':
+if what_to_run == '1' or what_to_run == '3':
 
     print('Made main dataframe', round(float(f'{timer_f(timer)}'), 2))
-    
-    #All data where disp != orig    
-    df_disparity = df[df['Country of Dispatch'] != df['Country of Origin']]
-    
-    
+        
     #Time series
     dates, class_ = (df_disparity['Year-Month'].unique()).tolist(), ['Origin', 'Dispatch']
     for v in class_:    
@@ -243,7 +240,7 @@ if what_to_run == '2' or what_to_run == '3':
 
 
 '-------------------------------------------------------------------------------------------'
-if what_to_run == '1' or what_to_run == '3':
+if what_to_run == '2' or what_to_run == '3':
     ###QA
 
     print('Made Everything else', round(float(f'{timer_f(timer)}'), 2))
