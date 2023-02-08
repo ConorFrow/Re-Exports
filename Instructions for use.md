@@ -1,3 +1,5 @@
+### This Branch allows you to run the hmrc_data_reader code once to save a pickle with the dataframe in the file, then run the main file to do analysis
+### Just did this to save myself/others loading in all the data every time, instruction below arent updated yet
 ### BEFORE RUNNING:
 # Place the code and the two text files ['(Working) Trade Origin Project.py', 'All Country Data.txt', 'SITC codes'] in a single folder, doesn't matter what
 # the name is.
