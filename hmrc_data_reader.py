@@ -7,8 +7,6 @@ sitc_all = [sitc_i, sitc_ii, sitc_iii, sitc_iv, sitc_v]
 eu = ('AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'EL', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE')
 
 
-
-
 #These three functions are used to map Names/Values to their respective country codes in the dataset
 def eu_non(country):
     if country in eu:
@@ -106,3 +104,4 @@ df = DataFrame(data = data)
 del month, comcode, sitc_i, sitc_ii, c_dis, port, c_orig, val, n_c_dis, n_port, n_c_orig, transport
 df['Value'] = to_numeric(df['Value'])
 df['Value'] = df['Value']/1000000
+df.to_pickle(r'../Rotterdam Effect/nov_data.pkl')
