@@ -42,8 +42,6 @@ def sitc_code(sitc_level):
         return f"{sitc_level[:-1:]} - Suppressed for Confidentiality"
 
 
-
-
 for file in os.listdir():
 ##Reading relevant text files and splitting all lines by '\n' so they can be read individually
     if file.endswith('.txt') and file != 'SITC codes.txt' and file != 'All Country Data.txt' and file != 'Continents temp.txt':
@@ -104,4 +102,4 @@ df = DataFrame(data = data)
 del month, comcode, sitc_i, sitc_ii, c_dis, port, c_orig, val, n_c_dis, n_port, n_c_orig, transport
 df['Value'] = to_numeric(df['Value'])
 df['Value'] = df['Value']/1000000
-df.to_pickle(r'../Rotterdam Effect/nov_data.pkl')
+df.to_pickle(r'../Rotterdam Effect/dec_data.pkl')

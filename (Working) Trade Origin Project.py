@@ -1,7 +1,7 @@
 start = 0
 #Helping with run times by running part of the code that is needed
 while start == 0:
-    what_to_run = input('Tables = 1 | QA = 2 | Both = 3: ---> ')
+    what_to_run = input('Tables = 1 | QA = 2 | Dash = 3 | Tables + QA = 4 | Tables + Dash = 5 | QA + Dash = 6 | All = 7: ---> ')
     if what_to_run == '1' or what_to_run == '2' or what_to_run == '3':
         start += 1
     else:
@@ -11,6 +11,9 @@ while start == 0:
 from pandas import ExcelWriter, concat, read_pickle
 from math import radians, cos, sin, asin, sqrt
 import time
+from dash import html, dcc, Dash, Input, Output
+import dash_bootstrap_components as dbc
+import plotly.express as px
 
 timer = float(time.time())
 
@@ -45,6 +48,8 @@ def dist_calcuk(country_2_coords):
 def timer_f(timers):
     return timers - float(time.time())   
     timers = float(time.time())
+
+
 '-------------------------------------------------------------------------------------------'
 ###ORGANISING DATA
 
@@ -55,13 +60,14 @@ wr = ExcelWriter('Pre-made Analysis re-exports.xlsx')
 
 print('Start', f'{timer_f(timer)}')
 
-df = read_pickle('C:/Users/frowc/OneDrive - Office for National Statistics/Rotterdam Effect/Files we dont want to run (ignore)/nov_data.pkl')
+df = read_pickle(r'../Rotterdam Effect/Files we dont want to run (ignore)/dec_data.pkl')
 
 #All data where disp != orig    
 df_disparity = df[df['Country of Dispatch'] != df['Country of Origin']]
+
 '-------------------------------------------------------------------------------------------'
 ###ANALYSIS STUFF
-if what_to_run == '1' or what_to_run == '3':
+if what_to_run in ['1', '4', '5', '7']:
 
     print('Made main dataframe', round(float(f'{timer_f(timer)}'), 2))
         
@@ -76,12 +82,12 @@ if what_to_run == '1' or what_to_run == '3':
         df_ts.to_excel(wr, sheet_name = f'Time Series by {v}', index = False)
     
     #EU/non-EU time series (it will be possible to loop the above and below, I will do that later (maybe))
-    df_disparity = df[df['Area of Dispatch'] != df['Area of Origin']]
+    df_disparity_a = df[df['Area of Dispatch'] != df['Area of Origin']]
     
     for v in class_:    
-        df_ts = ((df_disparity[df_disparity['Year-Month'] == f'{dates[0]}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
+        df_ts = ((df_disparity_a[df_disparity_a['Year-Month'] == f'{dates[0]}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
         for i in dates[1::]:
-            df_temp = (df_disparity[df_disparity['Year-Month'] == f'{i}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()
+            df_temp = (df_disparity_a[df_disparity_a['Year-Month'] == f'{i}']).groupby([f'Area of {v}', 'SITC level 1'])['Value'].sum()
             df_ts = concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
         df_ts = df_ts.rename_axis([v, 'SITC level 1']).reset_index()    
         df_ts.to_excel(wr, sheet_name = f'EU Time Series by {v}', index = False)
@@ -113,25 +119,57 @@ if what_to_run == '1' or what_to_run == '3':
     
     wr.save()
     
-    ###Ukraine temp
-    ua = df_disparity[df_disparity['Country of Origin'] == 'Ukraine']
     
+#Making Dash app to show cool things
+
+if what_to_run in ['3', '5', '6', '7']:
     
-    df_ts = ((ua[ua['Year-Month'] == f'{dates[0]}']).groupby(['Country of Dispatch', 'SITC level 1'])['Value'].sum()).rename(f'{dates[0]}')
-    for i in dates[1::]:
-        df_temp = (ua[ua['Year-Month'] == f'{i}']).groupby(['Country of Dispatch', 'SITC level 1'])['Value'].sum()
-        df_ts = concat([df_ts, df_temp], axis = 1, join = 'outer').rename(columns = {'Value' : f'{i}'})
-    df_ts = df_ts.rename_axis(['Country of Dispatch', 'SITC level 1']).reset_index()    
+    app = Dash(__name__)
+
+    app.layout = html.Div([
+        
+        html.Br(), html.Br(),   #Line Break maybe???
+        dbc.Row([
+            dbc.Col(lg=1),
+            dbc.Col([
+                
+            dcc.RadioItems(
+                ['Dispatch', 'Origin'],
+                'Dispatch',
+                id = 'orig-disp',
+                inline = True
+            ),
+                dbc.Label('Country:'),
+            dcc.Dropdown(id='Country',
+                         options=[{'label' : i, 'value' : i} for i in df_disparity['Country of Dispatch'].unique()],
+                         value='value'),
+            ]),
+
+            
+            dbc.Col(), html.Br(), html.Br(),
+            dcc.Graph(id='treemap-graph')
+        ])
+    ])
+
     
+    @app.callback(
+        Output('treemap-graph', 'figure'),
+        Input('Country', 'value'),
+        Input('orig-disp', 'value')
+    )
+
+    def make_treemap(dropd, disp_orig):
+        trade_type = ('Country of Dispatch' if disp_orig == 'Dispatch' else 'Country of Origin')
+        dff = df_disparity[df_disparity[f'{trade_type}'] == dropd]
+        fig = px.treemap(dff, path = [dropd, 'SITC level 1', 'SITC level 2'], values = 'Value', height = 800)
+        return fig
     
-    abc = df_disparity.copy()
-    abc = abc[abc['Country of Dispatch'] == 'Netherlands']
-    abc = abc.groupby(['Country of Origin', 'SITC level 1', 'SITC level 2'])['Value'].sum()
-    abc = abc.rename_axis(['Origin', 'SITC Level 1', 'SITC level 2']).reset_index()
+    app.run_server(debug=True, use_reloader = False)
+
 
 
 '-------------------------------------------------------------------------------------------'
-if what_to_run == '2' or what_to_run == '3':
+if what_to_run in ['2', '4', '6', '7']:
     ###QA
 
     print('Made Everything else', round(float(f'{timer_f(timer)}'), 2))
