@@ -1,8 +1,7 @@
-from pandas import DataFrame, to_numeric
+from pandas import DataFrame, to_numeric, concat
 import os
 
 month, comcode, sitc, c_dis, port, c_orig, val, n_c_dis, n_port, n_c_orig, hs_two, sitc_dict, transport, sitc_i, sitc_ii, sitc_iii, sitc_iv, sitc_v, area_dis, area_orig, cntry_dict, dist_dict = [], [], [], [], [], [], [], [], [], [], [], {}, [], [], [], [], [], [], [], [], {}, {}
-sitc_all = [sitc_i, sitc_ii, sitc_iii, sitc_iv, sitc_v]
 ##List of EU countries
 eu = ('AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'EL', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE')
 
@@ -58,7 +57,7 @@ for file in os.listdir():
 
         for i in all_d:
             if i.find('QV') == -1 and i.find('YY') == -1 and i.find('ZY') == -1 and i[40:42:] != '  ':
-                month.append(i[:6:]), comcode.append(i[13:21:]), sitc_i.append(i[21:22:]), sitc_ii.append(i[21:23:]), c_dis.append(i[29:31:]), port.append(i[34:37:]), c_orig.append(i[40:42:]), val.append(float(i[44:56:])), n_c_dis.append(i[26:29:]), n_port.append(i[31:34:]), n_c_orig.append(i[37:40:]), transport.append(i[42:44:])
+                month.append(i[:6:]), comcode.append(i[13:21:]), sitc_i.append(i[21:22:]), sitc_ii.append(i[21:23:]), sitc_iii.append(i[21:24:]), c_dis.append(i[29:31:]), port.append(i[34:37:]), c_orig.append(i[40:42:]), val.append(float(i[44:56:])), n_c_dis.append(i[26:29:]), n_port.append(i[31:34:]), n_c_orig.append(i[37:40:]), transport.append(i[42:44:])
 
 ##Reading/Using File to link SITC code with commodity names (file wont read unless encoding = utf8 is used ???)
 
@@ -78,6 +77,8 @@ sitc_names, cntry_all = temp[-2], temp[-1]
 for i in sitc_names:
     sitc_dict[i[:i.find('\t'):]] = i[i.find('\t')+1::]
 
+
+
 hold = []
 long, lat = [], []
 for i in cntry_all:
@@ -93,13 +94,22 @@ for i in hold:
 area_dis, area_orig = list(map(eu_non, c_dis)), list(map(eu_non, c_orig))                   #EU or non-EU
 c_dis_coord, c_orig_coord = list(map(coord, c_dis)), list(map(coord, c_orig))               #Longitude and latitude
 c_dis_name, c_orig_name = list(map(country_name, c_dis)), list(map(country_name, c_orig))   #Country Names
-sitc_i, sitc_ii = list(map(sitc_code, sitc_i)), list(map(sitc_code, sitc_ii))               #SITC Codes
+sitc_i, sitc_ii, sitc_iii = list(map(sitc_code, sitc_i)), list(map(sitc_code, sitc_ii)), list(map(sitc_code, sitc_iii))               #SITC Codes
 
 
 ##Creating the main dataframe
-data = {'Year-Month' : month, 'Commodity Code' : comcode, 'SITC level 1' : sitc_i, 'SITC level 2' : sitc_ii, 'Country of Dispatch' : c_dis_name, 'Country of Dispatch Code' : c_dis, 'Country of Dispatch Co-ords' : c_dis_coord, 'Port of Dispatch' : port, 'Area of Dispatch' : area_dis, 'Country of Origin' : c_orig_name, 'Country of Origin Code' : c_orig, 'Country of Origin Co-ords' : c_orig_coord, 'Area of Origin' : area_orig, 'Value' : val, 'Method of Transport' : transport}
+data = {'Year-Month' : month, 'Commodity Code' : comcode, 'SITC level 1' : sitc_i, 'SITC level 2' : sitc_ii, 'SITC level 3' : sitc_iii, 'Country of Dispatch' : c_dis_name, 'Country of Dispatch Code' : c_dis, 'Country of Dispatch Co-ords' : c_dis_coord, 'Port of Dispatch' : port, 'Area of Dispatch' : area_dis, 'Country of Origin' : c_orig_name, 'Country of Origin Code' : c_orig, 'Country of Origin Co-ords' : c_orig_coord, 'Area of Origin' : area_orig, 'Value' : val, 'Method of Transport' : transport}
 df = DataFrame(data = data)
 del month, comcode, sitc_i, sitc_ii, c_dis, port, c_orig, val, n_c_dis, n_port, n_c_orig, transport
 df['Value'] = to_numeric(df['Value'])
 df['Value'] = df['Value']/1000000
+df_disparity = df[df['Country of Origin'] != df['Country of Dispatch']]
+df_same = df[df['Country of Origin'] != df['Country of Dispatch']]
+df_same = df_same.groupby(['Country of Dispatch', 'Country of Origin'])['Value'].sum().reset_index()
+df_same['SITC level 1'] = 'Non Re-exported Trade'
+df_same['SITC level 2'] = 'Non Re-exported Trade'
+df_same['SITC level 3'] = 'Non Re-exported Trade'
+df = concat([df_disparity, df_same], sort = False)
+df.fillna('N/A')
 df.to_pickle(r'../Rotterdam Effect/dec_data.pkl')
+df_disparity.to_pickle(r'../Rotterdam Effect/dec_disparity_data.pkl')

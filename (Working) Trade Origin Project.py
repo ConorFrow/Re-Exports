@@ -60,10 +60,10 @@ wr = ExcelWriter('Pre-made Analysis re-exports.xlsx')
 
 print('Start', f'{timer_f(timer)}')
 
-df = read_pickle(r'../Rotterdam Effect/Files we dont want to run (ignore)/dec_data.pkl')
+df = read_pickle(r'../Rotterdam Effect/dec_data.pkl')
 
 #All data where disp != orig    
-df_disparity = df[df['Country of Dispatch'] != df['Country of Origin']]
+df_disparity = read_pickle(r'../Rotterdam Effect/dec_disparity_data.pkl')
 
 '-------------------------------------------------------------------------------------------'
 ###ANALYSIS STUFF
@@ -124,8 +124,14 @@ if what_to_run in ['1', '4', '5', '7']:
 
 if what_to_run in ['3', '5', '6', '7']:
     
-    app = Dash(__name__)
 
+    
+    app = Dash(__name__)
+    
+    colors = {
+    'background': '#111111',
+    'text': '#7FDBFF'
+    }
     app.layout = html.Div([
         
         html.Br(), html.Br(),   #Line Break maybe???
@@ -141,7 +147,7 @@ if what_to_run in ['3', '5', '6', '7']:
             ),
                 dbc.Label('Country:'),
             dcc.Dropdown(id='Country',
-                         options=[{'label' : i, 'value' : i} for i in df_disparity['Country of Dispatch'].unique()],
+                         options=[{'label' : i, 'value' : i} for i in df['Country of Dispatch'].unique()],
                          value='value'),
             ]),
 
@@ -152,16 +158,13 @@ if what_to_run in ['3', '5', '6', '7']:
     ])
 
     
-    @app.callback(
-        Output('treemap-graph', 'figure'),
-        Input('Country', 'value'),
-        Input('orig-disp', 'value')
-    )
+    @app.callback(Output('treemap-graph', 'figure'), Input('Country', 'value'), Input('orig-disp', 'value'))
 
     def make_treemap(dropd, disp_orig):
         trade_type = ('Country of Dispatch' if disp_orig == 'Dispatch' else 'Country of Origin')
-        dff = df_disparity[df_disparity[f'{trade_type}'] == dropd]
-        fig = px.treemap(dff, path = [dropd, 'SITC level 1', 'SITC level 2'], values = 'Value', height = 800)
+        dff = df[df[f'{trade_type}'] == dropd]
+        fig = px.treemap(dff, path = [f'{trade_type}', 'SITC level 1', 'SITC level 2', 'SITC level 3'], values = 'Value', height = 800)
+        
         return fig
     
     app.run_server(debug=True, use_reloader = False)
